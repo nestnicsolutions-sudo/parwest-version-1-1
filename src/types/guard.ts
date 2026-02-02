@@ -118,6 +118,12 @@ export interface Guard {
     notes?: string;
     tags?: string[];
     
+    // Blacklist
+    blacklisted: boolean;
+    blacklisted_reason?: string;
+    blacklisted_at?: string;
+    blacklisted_by?: string;
+    
     // Metrics
     total_deployments: number;
     active_deployments: number;

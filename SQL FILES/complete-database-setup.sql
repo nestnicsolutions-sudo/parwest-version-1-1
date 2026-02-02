@@ -664,6 +664,64 @@ CREATE POLICY "Everyone can view roles" ON public.roles FOR SELECT USING (true);
 CREATE POLICY "Everyone can view permissions" ON public.permissions FOR SELECT USING (true);
 CREATE POLICY "Everyone can view role permissions" ON public.role_permissions FOR SELECT USING (true);
 
+-- =====================================================
+-- RLS POLICIES FOR GUARDS TABLE
+-- =====================================================
+
+ALTER TABLE public.guards ENABLE ROW LEVEL SECURITY;
+
+-- Policy 1: Everyone can VIEW guards in their organization
+DROP POLICY IF EXISTS "Users can view guards in their org" ON public.guards;
+CREATE POLICY "Users can view guards in their org"
+    ON public.guards FOR SELECT
+    USING (
+        org_id IN (
+            SELECT org_id FROM public.profiles WHERE id = auth.uid()
+        )
+    );
+
+-- Policy 2: Supervisors, HR, Managers, and Admins can CREATE guards
+DROP POLICY IF EXISTS "Supervisors can create guards" ON public.guards;
+CREATE POLICY "Supervisors can create guards"
+    ON public.guards FOR INSERT
+    WITH CHECK (
+        org_id IN (
+            SELECT org_id FROM public.profiles WHERE id = auth.uid()
+        )
+        AND EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid()
+            AND role IN ('system_admin', 'regional_manager', 'hr_officer', 'ops_supervisor')
+        )
+    );
+
+-- Policy 3: Supervisors, HR, Managers, and Admins can UPDATE guards in their org
+DROP POLICY IF EXISTS "Supervisors can update guards" ON public.guards;
+CREATE POLICY "Supervisors can update guards"
+    ON public.guards FOR UPDATE
+    USING (
+        org_id IN (
+            SELECT org_id FROM public.profiles WHERE id = auth.uid()
+        )
+        AND EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid()
+            AND role IN ('system_admin', 'regional_manager', 'hr_officer', 'ops_supervisor')
+        )
+    );
+
+-- Policy 4: Only System Admins can DELETE guards
+DROP POLICY IF EXISTS "System admins can delete guards" ON public.guards;
+CREATE POLICY "System admins can delete guards"
+    ON public.guards FOR DELETE
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE id = auth.uid()
+            AND role = 'system_admin'
+        )
+    );
+
 -- RLS for approval_requests
 ALTER TABLE public.approval_requests ENABLE ROW LEVEL SECURITY;
 
@@ -693,7 +751,7 @@ CREATE POLICY "Admins can update approval requests"
         AND EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = auth.uid()
-            AND role IN ('system_admin', 'org_admin')
+            AND role IN ('system_admin', 'regional_manager', 'hr_officer')
         )
     );
 
@@ -755,6 +813,31 @@ CREATE INDEX IF NOT EXISTS idx_attendance_date ON public.attendance_records(atte
 
 CREATE INDEX IF NOT EXISTS idx_invoices_client_id ON public.invoices(client_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_status ON public.invoices(status);
+
+
+
+-- Add blacklist feature to guards table
+-- This prevents blacklisted guards from being deployed
+
+-- Add blacklist feature to guards table
+-- This prevents blacklisted guards from being deployed
+
+-- Add blacklist columns to guards table
+ALTER TABLE guards 
+ADD COLUMN IF NOT EXISTS blacklisted BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS blacklisted_reason TEXT,
+ADD COLUMN IF NOT EXISTS blacklisted_at TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS blacklisted_by UUID;
+
+-- Add index for better query performance
+CREATE INDEX IF NOT EXISTS idx_guards_blacklisted ON guards(blacklisted) WHERE blacklisted = TRUE;
+
+-- Add comment for documentation
+COMMENT ON COLUMN guards.blacklisted IS 'If true, guard cannot be deployed regardless of status';
+COMMENT ON COLUMN guards.blacklisted_reason IS 'Reason why guard was blacklisted';
+COMMENT ON COLUMN guards.blacklisted_at IS 'Timestamp when guard was blacklisted';
+COMMENT ON COLUMN guards.blacklisted_by IS 'User who blacklisted the guard';
+
 
 -- =====================================================
 -- ✅ SETUP COMPLETE!

@@ -36,6 +36,9 @@ import {
     MapPin,
     FileText,
     Loader2,
+    AlertCircle,
+    Ban,
+    CheckCircle,
 } from 'lucide-react';
 import { useGuards } from '@/lib/hooks/use-guards';
 import type { Guard } from '@/types/guard';
@@ -72,10 +75,7 @@ export function GuardsListClient() {
         total: guards.length,
         active: guards.filter((g: Guard) => g.status === 'approved' || g.status === 'active').length,
         pending: guards.filter((g: Guard) => g.status === 'applicant').length,
-        verification: guards.filter((g: Guard) => 
-            g.police_verification_status !== 'approved' || 
-            g.medical_certificate_status !== 'approved'
-        ).length,
+        blacklisted: guards.filter((g: Guard) => g.blacklisted).length,
     }), [guards]);
 
     // Client-side filtering for instant response
@@ -138,18 +138,18 @@ export function GuardsListClient() {
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="shadow-sm">
+                <Card className="shadow-sm border-destructive/50">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Verification Pending
+                        <CardTitle className="text-sm font-medium text-destructive">
+                            Blacklisted
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-info">
+                        <div className="text-2xl font-bold text-destructive">
                             {isLoading ? (
                                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                             ) : (
-                                stats.verification
+                                stats.blacklisted
                             )}
                         </div>
                     </CardContent>
@@ -245,9 +245,19 @@ export function GuardsListClient() {
                                             <span className="text-sm text-muted-foreground">—</span>
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant={statusStyles[guard.status]?.variant || 'secondary'}>
-                                                {statusStyles[guard.status]?.label || guard.status}
-                                            </Badge>
+                                            <div className="flex items-center gap-2">
+                                                {guard.blacklisted && (
+                                                    <Badge variant="destructive" className="gap-1">
+                                                        <Ban className="h-3 w-3" />
+                                                        Blacklisted
+                                                    </Badge>
+                                                )}
+                                                {!guard.blacklisted && (
+                                                    <Badge variant={statusStyles[guard.status]?.variant || 'secondary'}>
+                                                        {statusStyles[guard.status]?.label || guard.status}
+                                                    </Badge>
+                                                )}
+                                            </div>
                                         </TableCell>
                                         <TableCell>
                                             <DropdownMenu>
@@ -268,14 +278,59 @@ export function GuardsListClient() {
                                                         Edit
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
-                                                    <DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        disabled={guard.blacklisted || guard.status !== 'approved'}
+                                                        title={guard.blacklisted ? 'Cannot deploy blacklisted guard' : guard.status !== 'approved' ? 'Guard must be approved before deployment' : ''}
+                                                    >
                                                         <MapPin className="h-4 w-4 mr-2" />
                                                         Deploy
+                                                        {(guard.blacklisted || guard.status !== 'approved') && (
+                                                            <AlertCircle className="h-3 w-3 ml-auto text-destructive" />
+                                                        )}
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem>
                                                         <FileText className="h-4 w-4 mr-2" />
                                                         Upload Document
                                                     </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    {guard.blacklisted ? (
+                                                        <DropdownMenuItem
+                                                            className="text-green-600"
+                                                            onClick={async () => {
+                                                                if (confirm('Remove this guard from blacklist?')) {
+                                                                    const { unblacklistGuard } = await import('@/lib/api/guards');
+                                                                    const result = await unblacklistGuard(guard.id);
+                                                                    if (result.success) {
+                                                                        window.location.reload();
+                                                                    } else {
+                                                                        alert('Error: ' + result.error);
+                                                                    }
+                                                                }
+                                                            }}
+                                                        >
+                                                            <CheckCircle className="h-4 w-4 mr-2" />
+                                                            Remove from Blacklist
+                                                        </DropdownMenuItem>
+                                                    ) : (
+                                                        <DropdownMenuItem
+                                                            className="text-destructive"
+                                                            onClick={async () => {
+                                                                const reason = prompt('Reason for blacklisting this guard:');
+                                                                if (reason) {
+                                                                    const { blacklistGuard } = await import('@/lib/api/guards');
+                                                                    const result = await blacklistGuard(guard.id, reason);
+                                                                    if (result.success) {
+                                                                        window.location.reload();
+                                                                    } else {
+                                                                        alert('Error: ' + result.error);
+                                                                    }
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Ban className="h-4 w-4 mr-2" />
+                                                            Blacklist Guard
+                                                        </DropdownMenuItem>
+                                                    )}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>

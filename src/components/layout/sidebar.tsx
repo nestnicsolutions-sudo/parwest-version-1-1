@@ -153,11 +153,17 @@ interface SidebarProps {
 export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
     const pathname = usePathname();
     const currentUser = getCurrentUserSync();
+    const [mounted, setMounted] = React.useState(false);
+
+    // Only filter navigation after component mounts to avoid hydration mismatch
+    React.useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // Filter navigation items based on user permissions
     const filterNavigation = (navGroups: NavGroup[]): NavGroup[] => {
-        // If no user data yet, show all navigation (permissions loading)
-        if (!currentUser) return navGroups;
+        // If no user data yet or not mounted, show all navigation (permissions loading)
+        if (!currentUser || !mounted) return navGroups;
 
         // System admin has access to EVERYTHING
         if (currentUser.role === 'system_admin') {

@@ -43,7 +43,7 @@ export async function getGuards(filters: GuardFilters = {}): Promise<GuardListRe
 
         let query = supabase
             .from('guards')
-            .select('id, guard_code, first_name, last_name, cnic, phone, status, regional_office_id, assigned_branch_id, is_active, created_at', { count: 'exact' })
+            .select('id, guard_code, first_name, last_name, cnic, phone, status, regional_office_id, assigned_branch_id, is_active, blacklisted, blacklisted_reason, blacklisted_at, created_at', { count: 'exact' })
             .eq('is_deleted', false);
 
         if (is_active !== undefined) {
@@ -183,6 +183,7 @@ export async function createGuard(data: CreateGuardDTO): Promise<{ data: Guard |
             updated_by: user.id,
             is_active: true,
             is_deleted: false,
+            blacklisted: false,
             documents_verified: false,
             police_verification_status: 'pending',
             character_certificate_status: 'pending',
@@ -457,9 +458,85 @@ export async function searchGuards(query: string, limit: number = 10): Promise<G
 }
 
 /**
+ * Blacklist a guard - prevents deployment
+ */
+export async function blacklistGuard(guardId: string, reason: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const supabase = await createClient();
+        
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+        
+        // Update guard blacklist status
+        const { error } = await supabase
+            .from('guards')
+            .update({
+                blacklisted: true,
+                blacklisted_reason: reason,
+                blacklisted_at: new Date().toISOString(),
+                blacklisted_by: user.id,
+                updated_at: new Date().toISOString(),
+                updated_by: user.id,
+            })
+            .eq('id', guardId);
+        
+        if (error) throw error;
+        
+        // Invalidate cache
+        apiCache.invalidate(`guard:detail:${guardId}`);
+        
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error blacklisting guard:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Remove guard from blacklist
+ */
+export async function unblacklistGuard(guardId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const supabase = await createClient();
+        
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            return { success: false, error: 'Unauthorized' };
+        }
+        
+        // Remove blacklist status
+        const { error } = await supabase
+            .from('guards')
+            .update({
+                blacklisted: false,
+                blacklisted_reason: null,
+                blacklisted_at: null,
+                blacklisted_by: null,
+                updated_at: new Date().toISOString(),
+                updated_by: user.id,
+            })
+            .eq('id', guardId);
+        
+        if (error) throw error;
+        
+        // Invalidate cache
+        apiCache.invalidate(`guard:detail:${guardId}`);
+        
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error removing blacklist:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
  * Get approved guards available for deployment
  * Only returns guards with status 'approved' and not currently deployed
- * Excludes guards with active or planned deployments
+ * Excludes blacklisted guards and guards with active or planned deployments
  */
 export async function getGuardsForDeployment(): Promise<GuardListResponse> {
     const supabase = await createClient();
@@ -484,6 +561,7 @@ export async function getGuardsForDeployment(): Promise<GuardListResponse> {
         .eq('is_deleted', false)
         .eq('is_active', true)
         .eq('status', 'approved')
+        .eq('blacklisted', false)  // Exclude blacklisted guards
         .order('created_at', { ascending: false });
 
     // Exclude guards that are currently deployed
