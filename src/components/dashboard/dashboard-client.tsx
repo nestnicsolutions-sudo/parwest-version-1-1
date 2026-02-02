@@ -108,7 +108,7 @@ export function DashboardClient() {
     return (
         <>
             {/* Quick Stats */}
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
+            <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-6 mb-6">
                 {statCards.map((stat) => {
                     const Icon = stat.icon;
                     const changeIsPositive = stat.change > 0;
@@ -116,37 +116,46 @@ export function DashboardClient() {
                     const trendColor = changeIsPositive ? 'text-success' : 'text-destructive';
 
                     return (
-                        <Card key={stat.title} className="group relative overflow-hidden border-0 bg-white/80 backdrop-blur-sm shadow-lg shadow-slate-200/50 transition-all duration-300 hover:shadow-xl hover:shadow-slate-300/50 hover:-translate-y-1">
-                            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                            <CardHeader className="pb-3 relative z-10">
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="text-sm font-semibold text-slate-600 uppercase tracking-wide">
+                        <Card key={stat.title} className="group relative overflow-hidden border border-slate-200 bg-white/90 backdrop-blur-md shadow-lg shadow-blue-900/10 transition-all duration-300 hover:shadow-xl hover:shadow-blue-900/20 hover:-translate-y-1 hover:border-blue-500/50 rounded-xl">
+                            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-blue-500/20 opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500"></div>
+                            <CardContent className="p-3 relative z-10">
+                                {/* Top row: Icon left, Title right */}
+                                <div className="flex items-start justify-between mb-4">
+                                    {/* Icon in top left */}
+                                    <div className="rounded-xl bg-gradient-to-br from-blue-50 to-purple-50 p-2 shadow-md shadow-blue-200/50 w-fit ring-1 ring-blue-200/50 group-hover:ring-blue-400/50 group-hover:shadow-lg group-hover:shadow-blue-300/50 transition-all duration-300">
+                                        <Icon className={`h-4.5 w-4.5 ${stat.color} transition-transform duration-300 group-hover:scale-110`} />
+                                    </div>
+                                    
+                                    {/* Title in top right */}
+                                    <div className="text-xs font-semibold text-slate-600 uppercase tracking-wider leading-tight text-right">
                                         {stat.title}
-                                    </CardTitle>
-                                    <div className="rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 p-2.5 shadow-inner group-hover:shadow-md transition-shadow">
-                                        <Icon className={`h-5 w-5 ${stat.color}`} />
                                     </div>
                                 </div>
-                            </CardHeader>
-                            <CardContent className="relative z-10">
-                                {statsLoading ? (
-                                    <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-                                ) : (
-                                    <>
-                                        <div className="text-3xl font-bold bg-gradient-to-br from-slate-900 to-slate-700 bg-clip-text text-transparent">{stat.value}</div>
-                                        <div className={`flex items-center text-sm mt-2 font-medium ${trendColor}`}>
-                                            <TrendIcon className="h-3 w-3 mr-1" />
-                                            <span>
-                                                {formatChange(stat.change, stat.isPercentage, stat.isCurrency)} from last period
+                                
+                                {/* Value */}
+                                <div className="mb-2">
+                                    {statsLoading ? (
+                                        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                                    ) : (
+                                        <div className="text-2xl font-bold bg-gradient-to-br from-slate-900 to-slate-700 bg-clip-text text-transparent leading-tight">{stat.value}</div>
+                                    )}
+                                </div>
+                                
+                                {/* Trend in bottom */}
+                                {!statsLoading && (
+                                    <div className={`flex items-center text-xs font-medium ${trendColor} leading-tight`}>
+                                        <TrendIcon className="h-3 w-3 mr-0.5" />
+                                        <span className="whitespace-nowrap">
+                                            {formatChange(stat.change, stat.isPercentage, stat.isCurrency)}
+                                        </span>
+                                        {statsFetching && (
+                                            <span className="text-[10px] text-slate-500 ml-2 flex items-center gap-1">
+                                                <span className="inline-block h-1 w-1 rounded-full bg-blue-500 animate-pulse"></span>
+                                                Syncing
                                             </span>
-                                        </div>
-                                        {statsFetching && !statsLoading && (
-                                            <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
-                                                <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-                                                Syncing...
-                                            </p>
                                         )}
-                                    </>
+                                    </div>
                                 )}
                             </CardContent>
                         </Card>
