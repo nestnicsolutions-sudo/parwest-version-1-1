@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { cachedFetch } from './cache';
 import type {
   AttendanceRecord,
   AttendanceDetail,
@@ -15,7 +16,7 @@ import type {
 } from '@/types/attendance';
 
 // =====================================================
-// ATTENDANCE CRUD OPERATIONS
+// ATTENDANCE CRUD OPERATIONS - Optimized
 // =====================================================
 
 export async function getAttendanceRecords(
@@ -23,65 +24,76 @@ export async function getAttendanceRecords(
   page = 1,
   pageSize = 50
 ): Promise<AttendanceListResponse> {
-  const supabase = await createClient();
+  const cacheKey = `attendance:records:${JSON.stringify({ filters, page, pageSize })}`;
+  
+  return cachedFetch(cacheKey, async () => {
+    const supabase = await createClient();
 
-  let query = supabase
-    .from('attendance_records')
-    .select(
-      `
-      *,
-      guard:guards!inner(id, guard_code, full_name, phone),
-      branch:client_branches!inner(
-        id, 
-        branch_code, 
-        branch_name,
-        client:clients!inner(client_name)
+    let query = supabase
+      .from('attendance_records')
+      .select(
+        `
+        id,
+        guard_id,
+        branch_id,
+        attendance_date,
+        check_in,
+        check_out,
+        status,
+        attendance_type,
+        guard:guards!inner(id, guard_code, first_name, last_name, phone),
+        branch:client_branches!inner(
+          id, 
+          branch_code, 
+          branch_name,
+          client:clients!inner(client_name)
+        )
+      `,
+        { count: 'exact' }
       )
-    `,
-      { count: 'exact' }
-    )
-    .gte('attendance_date', filters.from_date)
-    .lte('attendance_date', filters.to_date)
-    .order('attendance_date', { ascending: false });
+      .gte('attendance_date', filters.from_date)
+      .lte('attendance_date', filters.to_date)
+      .order('attendance_date', { ascending: false });
 
-  // Apply filters
-  if (filters.guard_id) {
-    query = query.eq('guard_id', filters.guard_id);
-  }
-  if (filters.branch_id) {
-    query = query.eq('branch_id', filters.branch_id);
-  }
-  if (filters.status) {
-    query = query.eq('status', filters.status);
-  }
-  if (filters.verified !== undefined) {
-    query = query.eq('verified', filters.verified);
-  }
+    // Apply filters
+    if (filters.guard_id) {
+      query = query.eq('guard_id', filters.guard_id);
+    }
+    if (filters.branch_id) {
+      query = query.eq('branch_id', filters.branch_id);
+    }
+    if (filters.status) {
+      query = query.eq('status', filters.status);
+    }
+    if (filters.verified !== undefined) {
+      query = query.eq('verified', filters.verified);
+    }
 
-  // Pagination
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-  query = query.range(from, to);
+    // Pagination
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
 
-  const { data, error, count } = await query;
+    const { data, error, count } = await query;
 
-  if (error) throw error;
+    if (error) throw error;
 
-  // Transform data to match AttendanceDetail type
-  const records = (data || []).map((record: any) => ({
-    ...record,
-    branch: {
-      ...record.branch,
-      client_name: record.branch.client.client_name,
-    },
-  }));
+    // Transform data to match AttendanceDetail type
+    const records = (data || []).map((record: any) => ({
+      ...record,
+      branch: {
+        ...record.branch,
+        client_name: record.branch.client.client_name,
+      },
+    }));
 
-  return {
-    records: records as AttendanceDetail[],
-    total: count || 0,
-    page,
-    pageSize,
-  };
+    return {
+      records: records as AttendanceDetail[],
+      total: count || 0,
+      page,
+      pageSize,
+    };
+  }, 30000); // 30 second cache
 }
 
 // =====================================================

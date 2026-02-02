@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/layout';
 import { Button } from '@/components/ui/button';
@@ -34,11 +35,15 @@ import {
 } from 'lucide-react';
 import { CreateGuardDrawer } from '@/components/guards/create-guard-drawer';
 import { getGuards } from '@/lib/api/guards';
+import { LoadingSpinner, TableSkeleton, CardSkeleton } from '@/components/ui/loading-spinner';
 
 export const metadata: Metadata = {
-    title: 'Guards',
+    title: 'Guards | Parwest ERP',
     description: 'Manage security guards',
 };
+
+// Enable dynamic rendering with revalidation
+export const revalidate = 30; // Revalidate every 30 seconds
 
 // Fetch real data from database
 async function getGuardsData() {
@@ -50,64 +55,6 @@ async function getGuardsData() {
         return [];
     }
 }
-
-const mockGuardsForFallback = [
-    {
-        id: '1',
-        parwest_id: 'PW-2024-001',
-        name: 'Muhammad Ali Khan',
-        cnic: '33100-1234567-1',
-        designation: 'Security Guard',
-        status: 'active',
-        region: 'Lahore',
-        current_deployment: 'ABC Bank - Gulberg Branch',
-        contact: '+92 300 1234567',
-    },
-    {
-        id: '2',
-        parwest_id: 'PW-2024-002',
-        name: 'Hassan Raza',
-        cnic: '33100-2345678-2',
-        designation: 'Armed Guard',
-        status: 'pending_deployment',
-        region: 'Lahore',
-        current_deployment: null,
-        contact: '+92 301 2345678',
-    },
-    {
-        id: '3',
-        parwest_id: 'PW-2024-003',
-        name: 'Ahmed Hussain',
-        cnic: '33100-3456789-3',
-        designation: 'Supervisor',
-        status: 'active',
-        region: 'Islamabad',
-        current_deployment: 'XYZ Corp - Blue Area',
-        contact: '+92 302 3456789',
-    },
-    {
-        id: '4',
-        parwest_id: 'PW-2024-004',
-        name: 'Tariq Mehmood',
-        cnic: '33100-4567890-4',
-        designation: 'Security Guard',
-        status: 'suspended',
-        region: 'Karachi',
-        current_deployment: null,
-        contact: '+92 303 4567890',
-    },
-    {
-        id: '5',
-        parwest_id: 'PW-2023-150',
-        name: 'Imran Siddiqui',
-        cnic: '33100-5678901-5',
-        designation: 'Armed Guard',
-        status: 'active',
-        region: 'Lahore',
-        current_deployment: 'National Bank - DHA Phase 5',
-        contact: '+92 304 5678901',
-    },
-];
 
 const statusStyles: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
     active: { label: 'Active', variant: 'default' },

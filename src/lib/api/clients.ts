@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient as createSupabaseClient } from '@/lib/supabase/server';
+import { cachedFetch, apiCache } from './cache';
 import type {
   Client,   
   ClientBranch,
@@ -14,7 +15,7 @@ import type {
 } from '@/types/client';
 
 // =====================================================
-// CLIENT CRUD OPERATIONS
+// CLIENT CRUD OPERATIONS - Optimized with caching
 // =====================================================
 
 export async function getClients(
@@ -22,87 +23,95 @@ export async function getClients(
   page = 1,
   pageSize = 20
 ): Promise<ClientListResponse> {
-  const supabase = await createSupabaseClient();
+  const cacheKey = `clients:list:${JSON.stringify({ filters, page, pageSize })}`;
+  
+  return cachedFetch(cacheKey, async () => {
+    const supabase = await createSupabaseClient();
 
-  let query = supabase
-    .from('clients')
-    .select('*', { count: 'exact' })
-    .eq('is_deleted', false)
-    .order('created_at', { ascending: false });
+    let query = supabase
+      .from('clients')
+      .select('id, client_code, client_name, client_type, status, primary_contact_name, primary_contact_phone, city, is_active', { count: 'exact' })
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: false });
 
-  // Apply filters
-  if (filters?.search) {
-    query = query.or(`client_name.ilike.%${filters.search}%,client_code.ilike.%${filters.search}%`);
-  }
-  if (filters?.status) {
-    query = query.eq('status', filters.status);
-  }
-  if (filters?.client_type) {
-    query = query.eq('client_type', filters.client_type);
-  }
-  if (filters?.city) {
-    query = query.eq('city', filters.city);
-  }
+    // Apply filters
+    if (filters?.search) {
+      query = query.or(`client_name.ilike.%${filters.search}%,client_code.ilike.%${filters.search}%`);
+    }
+    if (filters?.status) {
+      query = query.eq('status', filters.status);
+    }
+    if (filters?.client_type) {
+      query = query.eq('client_type', filters.client_type);
+    }
+    if (filters?.city) {
+      query = query.eq('city', filters.city);
+    }
 
-  // Pagination
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-  query = query.range(from, to);
+    // Pagination
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    query = query.range(from, to);
 
-  const { data, error, count } = await query;
+    const { data, error, count } = await query;
 
-  if (error) throw error;
+    if (error) throw error;
 
-  return {
-    clients: data as Client[],
-    total: count || 0,
-    page,
-    pageSize,
-  };
+    return {
+      clients: data as Client[],
+      total: count || 0,
+      page,
+      pageSize,
+    };
+  }, 30000); // 30 second cache
 }
 
 export async function getClientById(id: string): Promise<ClientDetail | null> {
-  const supabase = await createSupabaseClient();
+  const cacheKey = `client:detail:${id}`;
+  
+  return cachedFetch(cacheKey, async () => {
+    const supabase = await createSupabaseClient();
 
-  // Get client
-  const { data: client, error: clientError } = await supabase
-    .from('clients')
-    .select('*')
-    .eq('id', id)
-    .single();
+    // Get client
+    const { data: client, error: clientError } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-  if (clientError) throw clientError;
-  if (!client) return null;
+    if (clientError) throw clientError;
+    if (!client) return null;
 
-  // Get branches
-  const { data: branches } = await supabase
-    .from('client_branches')
-    .select('*')
-    .eq('client_id', id)
-    .eq('is_active', true)
-    .order('created_at', { ascending: false });
+    // Get branches
+    const { data: branches } = await supabase
+      .from('client_branches')
+      .select('*')
+      .eq('client_id', id)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
 
-  // Get contracts
-  const { data: contracts } = await supabase
-    .from('client_contracts')
-    .select('*')
-    .eq('client_id', id)
-    .order('created_at', { ascending: false });
+    // Get contracts
+    const { data: contracts } = await supabase
+      .from('client_contracts')
+      .select('*')
+      .eq('client_id', id)
+      .order('created_at', { ascending: false });
 
-  // Get active guards count
-  const { count: activeGuards } = await supabase
-    .from('guard_deployments')
-    .select('*', { count: 'exact', head: true })
-    .eq('client_id', id)
-    .eq('status', 'active');
+    // Get active guards count
+    const { count: activeGuards } = await supabase
+      .from('guard_deployments')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', id)
+      .eq('status', 'active');
 
-  return {
-    ...client,
-    branches: (branches || []) as ClientBranch[],
-    contracts: (contracts || []) as ClientContract[],
-    active_guards: activeGuards || 0,
-    total_branches: branches?.length || 0,
-  };
+    return {
+      ...client,
+      branches: (branches || []) as ClientBranch[],
+      contracts: (contracts || []) as ClientContract[],
+      active_guards: activeGuards || 0,
+      total_branches: branches?.length || 0,
+    };
+  }, 30000); // 30 second cache
 }
 
 export async function createClient(

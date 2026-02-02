@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { cachedFetch } from './cache';
 
 export interface DashboardStats {
     activeGuards: number;
@@ -46,145 +47,149 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         .single();
 
     if (!profile?.org_id) throw new Error('Organization not found');
+    
+    const cacheKey = `dashboard:stats:${profile.org_id}`;
+    
+    return cachedFetch(cacheKey, async () => {
+        // Get current date and yesterday's date
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const todayStr = today.toISOString().split('T')[0];
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-    // Get current date and yesterday's date
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const todayStr = today.toISOString().split('T')[0];
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+        // Active Guards (approved and active status)
+        const { count: activeGuards } = await supabase
+            .from('guards')
+            .select('*', { count: 'exact', head: true })
+            .eq('org_id', profile.org_id)
+            .eq('is_deleted', false)
+            .eq('is_active', true)
+            .eq('status', 'approved');
 
-    // Active Guards (approved and active status)
-    const { count: activeGuards } = await supabase
-        .from('guards')
-        .select('*', { count: 'exact', head: true })
-        .eq('org_id', profile.org_id)
-        .eq('is_deleted', false)
-        .eq('is_active', true)
-        .eq('status', 'approved');
+        // Active Guards Yesterday
+        const { count: activeGuardsYesterday } = await supabase
+            .from('guards')
+            .select('*', { count: 'exact', head: true })
+            .eq('org_id', profile.org_id)
+            .eq('is_deleted', false)
+            .eq('is_active', true)
+            .eq('status', 'approved')
+            .lte('created_at', yesterdayStr);
 
-    // Active Guards Yesterday
-    const { count: activeGuardsYesterday } = await supabase
-        .from('guards')
-        .select('*', { count: 'exact', head: true })
-        .eq('org_id', profile.org_id)
-        .eq('is_deleted', false)
-        .eq('is_active', true)
-        .eq('status', 'approved')
-        .lte('created_at', yesterdayStr);
+        // Deployed Today (active or planned deployments)
+        const { count: deployedToday } = await supabase
+            .from('guard_deployments')
+            .select('*', { count: 'exact', head: true })
+            .eq('org_id', profile.org_id)
+            .in('status', ['active', 'planned']);
 
-    // Deployed Today (active or planned deployments)
-    const { count: deployedToday } = await supabase
-        .from('guard_deployments')
-        .select('*', { count: 'exact', head: true })
-        .eq('org_id', profile.org_id)
-        .in('status', ['active', 'planned']);
+        // Deployed Yesterday
+        const { count: deployedYesterday } = await supabase
+            .from('guard_deployments')
+            .select('*', { count: 'exact', head: true })
+            .eq('org_id', profile.org_id)
+            .in('status', ['active', 'planned'])
+            .lte('deployment_date', yesterdayStr);
 
-    // Deployed Yesterday
-    const { count: deployedYesterday } = await supabase
-        .from('guard_deployments')
-        .select('*', { count: 'exact', head: true })
-        .eq('org_id', profile.org_id)
-        .in('status', ['active', 'planned'])
-        .lte('deployment_date', yesterdayStr);
+        // Attendance Rate (today)
+        const { data: attendanceToday } = await supabase
+            .from('attendance')
+            .select('status')
+            .eq('org_id', profile.org_id)
+            .gte('attendance_date', todayStr)
+            .lte('attendance_date', todayStr);
 
-    // Attendance Rate (today)
-    const { data: attendanceToday } = await supabase
-        .from('attendance')
-        .select('status')
-        .eq('org_id', profile.org_id)
-        .gte('attendance_date', todayStr)
-        .lte('attendance_date', todayStr);
+        const totalAttendanceToday = attendanceToday?.length || 0;
+        const presentToday = attendanceToday?.filter(a => a.status === 'present').length || 0;
+        const attendanceRate = totalAttendanceToday > 0 ? (presentToday / totalAttendanceToday) * 100 : 0;
 
-    const totalAttendanceToday = attendanceToday?.length || 0;
-    const presentToday = attendanceToday?.filter(a => a.status === 'present').length || 0;
-    const attendanceRate = totalAttendanceToday > 0 ? (presentToday / totalAttendanceToday) * 100 : 0;
+        // Attendance Rate Yesterday
+        const { data: attendanceYesterday } = await supabase
+            .from('attendance')
+            .select('status')
+            .eq('org_id', profile.org_id)
+            .gte('attendance_date', yesterdayStr)
+            .lte('attendance_date', yesterdayStr);
 
-    // Attendance Rate Yesterday
-    const { data: attendanceYesterday } = await supabase
-        .from('attendance')
-        .select('status')
-        .eq('org_id', profile.org_id)
-        .gte('attendance_date', yesterdayStr)
-        .lte('attendance_date', yesterdayStr);
+        const totalAttendanceYesterday = attendanceYesterday?.length || 0;
+        const presentYesterday = attendanceYesterday?.filter(a => a.status === 'present').length || 0;
+        const attendanceRateYesterday = totalAttendanceYesterday > 0 ? (presentYesterday / totalAttendanceYesterday) * 100 : 0;
 
-    const totalAttendanceYesterday = attendanceYesterday?.length || 0;
-    const presentYesterday = attendanceYesterday?.filter(a => a.status === 'present').length || 0;
-    const attendanceRateYesterday = totalAttendanceYesterday > 0 ? (presentYesterday / totalAttendanceYesterday) * 100 : 0;
+        // Outstanding Invoices
+        const { data: outstandingInvoices } = await supabase
+            .from('invoices')
+            .select('total_amount')
+            .eq('org_id', profile.org_id)
+            .in('status', ['pending', 'sent', 'overdue']);
 
-    // Outstanding Invoices
-    const { data: outstandingInvoices } = await supabase
-        .from('invoices')
-        .select('total_amount')
-        .eq('org_id', profile.org_id)
-        .in('status', ['pending', 'sent', 'overdue']);
+        const outstandingAmount = outstandingInvoices?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0;
 
-    const outstandingAmount = outstandingInvoices?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0;
+        // Outstanding Invoices Yesterday
+        const { data: outstandingInvoicesYesterday } = await supabase
+            .from('invoices')
+            .select('total_amount')
+            .eq('org_id', profile.org_id)
+            .in('status', ['pending', 'sent', 'overdue'])
+            .lte('created_at', yesterdayStr);
 
-    // Outstanding Invoices Yesterday
-    const { data: outstandingInvoicesYesterday } = await supabase
-        .from('invoices')
-        .select('total_amount')
-        .eq('org_id', profile.org_id)
-        .in('status', ['pending', 'sent', 'overdue'])
-        .lte('created_at', yesterdayStr);
+        const outstandingAmountYesterday = outstandingInvoicesYesterday?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0;
 
-    const outstandingAmountYesterday = outstandingInvoicesYesterday?.reduce((sum, inv) => sum + (inv.total_amount || 0), 0) || 0;
+        // Payroll MTD (Month to Date)
+        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+        const { data: payrollMTD } = await supabase
+            .from('payroll')
+            .select('total_amount')
+            .eq('org_id', profile.org_id)
+            .gte('period_start', firstDayOfMonth)
+            .in('status', ['approved', 'paid']);
 
-    // Payroll MTD (Month to Date)
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-    const { data: payrollMTD } = await supabase
-        .from('payroll')
-        .select('total_amount')
-        .eq('org_id', profile.org_id)
-        .gte('period_start', firstDayOfMonth)
-        .in('status', ['approved', 'paid']);
+        const payrollAmount = payrollMTD?.reduce((sum, p) => sum + (p.total_amount || 0), 0) || 0;
 
-    const payrollAmount = payrollMTD?.reduce((sum, p) => sum + (p.total_amount || 0), 0) || 0;
+        // Payroll Previous Month
+        const firstDayOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0];
+        const lastDayOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0];
+        const { data: payrollLastMonth } = await supabase
+            .from('payroll')
+            .select('total_amount')
+            .eq('org_id', profile.org_id)
+            .gte('period_start', firstDayOfLastMonth)
+            .lte('period_start', lastDayOfLastMonth)
+            .in('status', ['approved', 'paid']);
 
-    // Payroll Previous Month
-    const firstDayOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0];
-    const lastDayOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0];
-    const { data: payrollLastMonth } = await supabase
-        .from('payroll')
-        .select('total_amount')
-        .eq('org_id', profile.org_id)
-        .gte('period_start', firstDayOfLastMonth)
-        .lte('period_start', lastDayOfLastMonth)
-        .in('status', ['approved', 'paid']);
+        const payrollAmountLastMonth = payrollLastMonth?.reduce((sum, p) => sum + (p.total_amount || 0), 0) || 0;
 
-    const payrollAmountLastMonth = payrollLastMonth?.reduce((sum, p) => sum + (p.total_amount || 0), 0) || 0;
+        // Open Tickets
+        const { count: openTickets } = await supabase
+            .from('tickets')
+            .select('*', { count: 'exact', head: true })
+            .eq('org_id', profile.org_id)
+            .in('status', ['open', 'in_progress']);
 
-    // Open Tickets
-    const { count: openTickets } = await supabase
-        .from('tickets')
-        .select('*', { count: 'exact', head: true })
-        .eq('org_id', profile.org_id)
-        .in('status', ['open', 'in_progress']);
+        // Open Tickets Yesterday
+        const { count: openTicketsYesterday } = await supabase
+            .from('tickets')
+            .select('*', { count: 'exact', head: true })
+            .eq('org_id', profile.org_id)
+            .in('status', ['open', 'in_progress'])
+            .lte('created_at', yesterdayStr);
 
-    // Open Tickets Yesterday
-    const { count: openTicketsYesterday } = await supabase
-        .from('tickets')
-        .select('*', { count: 'exact', head: true })
-        .eq('org_id', profile.org_id)
-        .in('status', ['open', 'in_progress'])
-        .lte('created_at', yesterdayStr);
-
-    return {
-        activeGuards: activeGuards || 0,
-        activeGuardsChange: (activeGuards || 0) - (activeGuardsYesterday || 0),
-        deployedToday: deployedToday || 0,
-        deployedTodayChange: (deployedToday || 0) - (deployedYesterday || 0),
-        attendanceRate: Math.round(attendanceRate * 10) / 10,
-        attendanceRateChange: Math.round((attendanceRate - attendanceRateYesterday) * 10) / 10,
-        outstandingInvoices: outstandingAmount,
-        outstandingInvoicesChange: outstandingAmount - outstandingAmountYesterday,
-        payrollMTD: payrollAmount,
-        payrollMTDChange: payrollAmount - payrollAmountLastMonth,
-        openTickets: openTickets || 0,
-        openTicketsChange: (openTickets || 0) - (openTicketsYesterday || 0),
-    };
+        return {
+            activeGuards: activeGuards || 0,
+            activeGuardsChange: (activeGuards || 0) - (activeGuardsYesterday || 0),
+            deployedToday: deployedToday || 0,
+            deployedTodayChange: (deployedToday || 0) - (deployedYesterday || 0),
+            attendanceRate: Math.round(attendanceRate * 10) / 10,
+            attendanceRateChange: Math.round((attendanceRate - attendanceRateYesterday) * 10) / 10,
+            outstandingInvoices: outstandingAmount,
+            outstandingInvoicesChange: outstandingAmount - outstandingAmountYesterday,
+            payrollMTD: payrollAmount,
+            payrollMTDChange: payrollAmount - payrollAmountLastMonth,
+            openTickets: openTickets || 0,
+            openTicketsChange: (openTickets || 0) - (openTicketsYesterday || 0),
+        };
+    }, 20000); // 20 second cache for dashboard
 }
 
 export async function getDashboardAlerts(): Promise<Alert[]> {

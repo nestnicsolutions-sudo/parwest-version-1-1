@@ -1,11 +1,13 @@
 /**
  * Guards API Service
  * All database operations for Guards module
+ * Optimized with caching and efficient queries
  */
 
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { cachedFetch, apiCache } from './cache';
 import type {
     Guard,
     GuardDetail,
@@ -21,107 +23,116 @@ import type {
 
 /**
  * Get list of guards with filters and pagination
+ * Cached for 30 seconds to improve performance
  */
 export async function getGuards(filters: GuardFilters = {}): Promise<GuardListResponse> {
-    const supabase = await createClient();
+    const cacheKey = `guards:list:${JSON.stringify(filters)}`;
     
-    const {
-        status,
-        search,
-        regional_office_id,
-        assigned_branch_id,
-        is_active = true,
-        page = 1,
-        limit = 50,
-    } = filters;
+    return cachedFetch(cacheKey, async () => {
+        const supabase = await createClient();
+        
+        const {
+            status,
+            search,
+            regional_office_id,
+            assigned_branch_id,
+            is_active = true,
+            page = 1,
+            limit = 50,
+        } = filters;
 
-    let query = supabase
-        .from('guards')
-        .select('*', { count: 'exact' })
-        .eq('is_deleted', false);
+        let query = supabase
+            .from('guards')
+            .select('id, guard_code, first_name, last_name, cnic, phone, status, regional_office_id, assigned_branch_id, is_active, created_at', { count: 'exact' })
+            .eq('is_deleted', false);
 
-    if (is_active !== undefined) {
-        query = query.eq('is_active', is_active);
-    }
+        if (is_active !== undefined) {
+            query = query.eq('is_active', is_active);
+        }
 
-    if (status) {
-        query = query.eq('status', status);
-    }
+        if (status) {
+            query = query.eq('status', status);
+        }
 
-    if (regional_office_id) {
-        query = query.eq('regional_office_id', regional_office_id);
-    }
+        if (regional_office_id) {
+            query = query.eq('regional_office_id', regional_office_id);
+        }
 
-    if (assigned_branch_id) {
-        query = query.eq('assigned_branch_id', assigned_branch_id);
-    }
+        if (assigned_branch_id) {
+            query = query.eq('assigned_branch_id', assigned_branch_id);
+        }
 
-    if (search) {
-        query = query.or(`guard_code.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%,cnic.ilike.%${search}%,phone.ilike.%${search}%`);
-    }
+        if (search) {
+            query = query.or(`guard_code.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%,cnic.ilike.%${search}%,phone.ilike.%${search}%`);
+        }
 
-    const { data, error, count } = await query
-        .order('created_at', { ascending: false })
-        .range((page - 1) * limit, page * limit - 1);
+        const { data, error, count } = await query
+            .order('created_at', { ascending: false })
+            .range((page - 1) * limit, page * limit - 1);
 
-    if (error) {
-        // If tables don't exist yet, return empty data instead of throwing
-        console.warn('Guards table not ready:', error.message);
+        if (error) {
+            console.warn('Guards table not ready:', error.message);
+            return {
+                data: [],
+                total: 0,
+                page,
+                limit,
+                totalPages: 0,
+            };
+        }
+
         return {
-            data: [],
-            total: 0,
+            data: (data || []) as Guard[],
+            total: count || 0,
             page,
             limit,
-            totalPages: 0,
+            totalPages: Math.ceil((count || 0) / limit),
         };
-    }
-
-    return {
-        data: data || [],
-        total: count || 0,
-        page,
-        limit,
-        totalPages: Math.ceil((count || 0) / limit),
-    };
+    }, 30000); // 30 second cache
 }
 
 /**
  * Get single guard by ID with all related data
+ * Cached for 60 seconds
  */
 export async function getGuardById(id: string): Promise<GuardDetail | null> {
-    const supabase = await createClient();
+    const cacheKey = `guard:detail:${id}`;
+    
+    return cachedFetch(cacheKey, async () => {
+        const supabase = await createClient();
 
-    const { data: guard, error } = await supabase
-        .from('guards')
-        .select('*')
-        .eq('id', id)
-        .eq('is_deleted', false)
-        .single();
+        const { data: guard, error } = await supabase
+            .from('guards')
+            .select('*')
+            .eq('id', id)
+            .eq('is_deleted', false)
+            .single();
 
-    if (error) {
-        console.error('Error fetching guard:', error);
-        return null;
-    }
+        if (error) {
+            console.error('Error fetching guard:', error);
+            return null;
+        }
 
-    if (!guard) return null;
+        if (!guard) return null;
 
-    // Fetch related data in parallel
-    const [documents, verifications, loans, clearance, statusHistory] = await Promise.all([
-        getGuardDocuments(id),
-        getGuardVerifications(id),
-        getGuardLoans(id),
-        getGuardClearance(id),
-        getGuardStatusHistory(id),
-    ]);
+        // Fetch related data in parallel
+        const [documents, verifications, loans, clearance, statusHistory] = await Promise.all([
+            getGuardDocuments(id),
+            getGuardVerifications(id),
+            getGuardLoans(id),
+            getGuardClearance(id),
+            getGuardStatusHistory(id),
+        ]);
 
-    return {
-        ...guard,
-        documents,
-        verifications,
-        loans,
-        clearance: clearance || undefined,
-        status_history: statusHistory,
-    };
+        return {
+            ...guard,
+            documents,
+            verifications,
+            loans,
+            clearance: clearance || undefined,
+            status_history: statusHistory,
+        };
+    }, 60000); // 60 second cache
 }
 
 /**
