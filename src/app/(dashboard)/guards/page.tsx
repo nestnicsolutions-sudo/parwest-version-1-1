@@ -1,74 +1,16 @@
 import { Metadata } from 'next';
-import { Suspense } from 'react';
-import Link from 'next/link';
 import { PageHeader } from '@/components/layout';
-import { Button } from '@/components/ui/button';
 import { ProtectedButton } from '@/components/ui/protected-button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-    Plus,
-    Search,
-    Filter,
-    Download,
-    MoreHorizontal,
-    Eye,
-    Edit,
-    MapPin,
-    FileText,
-} from 'lucide-react';
+import { Download } from 'lucide-react';
 import { CreateGuardDrawer } from '@/components/guards/create-guard-drawer';
-import { getGuards } from '@/lib/api/guards';
-import { LoadingSpinner, TableSkeleton, CardSkeleton } from '@/components/ui/loading-spinner';
+import { GuardsListClient } from '@/components/guards/guards-list-client';
 
 export const metadata: Metadata = {
     title: 'Guards | Parwest ERP',
     description: 'Manage security guards',
 };
 
-// Enable dynamic rendering with revalidation
-export const revalidate = 30; // Revalidate every 30 seconds
-
-// Fetch real data from database
-async function getGuardsData() {
-    try {
-        const result = await getGuards({ page: 1, limit: 50 });
-        return result.data || [];
-    } catch (error) {
-        console.error('Error fetching guards:', error);
-        return [];
-    }
-}
-
-const statusStyles: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-    active: { label: 'Active', variant: 'default' },
-    deployed: { label: 'Deployed', variant: 'default' },
-    pending_deployment: { label: 'Pending', variant: 'secondary' },
-    suspended: { label: 'Suspended', variant: 'destructive' },
-    terminated: { label: 'Terminated', variant: 'outline' },
-    applicant: { label: 'Applicant', variant: 'secondary' },
-};
-
-export default async function GuardsPage() {
-    // Fetch real guards data from database
-    const guards = await getGuardsData();
-
+export default function GuardsPage() {
     return (
         <div className="space-y-6">
             <PageHeader
@@ -90,167 +32,7 @@ export default async function GuardsPage() {
                 }
             />
 
-            {/* Stats Cards */}
-            <div className="grid gap-4 md:grid-cols-4">
-                <Card className="shadow-sm">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Total Guards
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{guards.length}</div>
-                    </CardContent>
-                </Card>
-                <Card className="shadow-sm">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Active
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-success">
-                            {guards.filter(g => g.status === 'approved').length}
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="shadow-sm">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Pending Deployment
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-warning">
-                            {guards.filter(g => g.status === 'applicant').length}
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="shadow-sm">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Verification Pending
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-info">
-                            {guards.filter(g => g.police_verification_status !== 'approved' || g.medical_certificate_status !== 'approved').length}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Filters & Search */}
-            <Card className="shadow-sm">
-                <CardContent className="pt-6">
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                        <div className="relative flex-1 max-w-sm">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input placeholder="Search by name, CNIC, ID..." className="pl-10" />
-                        </div>
-                        <div className="flex gap-2">
-                            <Button variant="outline" size="sm">
-                                <Filter className="h-4 w-4 mr-2" />
-                                Filters
-                            </Button>
-                            <Button variant="outline" size="sm">
-                                Status
-                            </Button>
-                            <Button variant="outline" size="sm">
-                                Region
-                            </Button>
-                            <Button variant="outline" size="sm">
-                                Designation
-                            </Button>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Guards Table */}
-            <Card className="shadow-sm">
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Guard ID</TableHead>
-                                <TableHead>Name</TableHead>
-                                <TableHead>CNIC</TableHead>
-                                <TableHead>Designation</TableHead>
-                                <TableHead>Region</TableHead>
-                                <TableHead>Current Deployment</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="w-[50px]"></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {guards.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                                        No guards found. Create your first guard to get started.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                guards.map((guard) => (
-                                    <TableRow key={guard.id}>
-                                        <TableCell className="font-medium">{guard.guard_code}</TableCell>
-                                        <TableCell>
-                                            <Link
-                                                href={`/guards/${guard.id}`}
-                                                className="font-medium text-primary hover:underline"
-                                            >
-                                                {guard.first_name} {guard.last_name}
-                                            </Link>
-                                            <p className="text-xs text-muted-foreground">{guard.phone}</p>
-                                        </TableCell>
-                                        <TableCell className="font-mono text-sm">{guard.cnic}</TableCell>
-                                        <TableCell>{guard.designation || '—'}</TableCell>
-                                        <TableCell>—</TableCell>
-                                        <TableCell>
-                                            <span className="text-sm text-muted-foreground">—</span>
-                                            </TableCell>
-                                        <TableCell>
-                                            <Badge variant={statusStyles[guard.status]?.variant || 'secondary'}>
-                                                {statusStyles[guard.status]?.label || guard.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem asChild>
-                                                        <Link href={`/guards/${guard.id}`}>
-                                                            <Eye className="h-4 w-4 mr-2" />
-                                                            View Case File
-                                                        </Link>
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem>
-                                                        <Edit className="h-4 w-4 mr-2" />
-                                                        Edit
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem>
-                                                        <MapPin className="h-4 w-4 mr-2" />
-                                                        Deploy
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem>
-                                                        <FileText className="h-4 w-4 mr-2" />
-                                                        Upload Document
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+            <GuardsListClient />
         </div>
     );
 }
