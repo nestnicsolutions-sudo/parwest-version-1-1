@@ -46,8 +46,11 @@ const statusStyles: Record<string, { label: string; variant: 'default' | 'second
     pending_deployment: { label: 'Pending', variant: 'secondary' },
     suspended: { label: 'Suspended', variant: 'destructive' },
     terminated: { label: 'Terminated', variant: 'outline' },
-    applicant: { label: 'Applicant', variant: 'secondary' },
+    applicant: { label: 'Pending Approval', variant: 'secondary' },
+    screening: { label: 'Under Screening', variant: 'secondary' },
     approved: { label: 'Approved', variant: 'default' },
+    onboarding: { label: 'Onboarding', variant: 'default' },
+    archived: { label: 'Archived', variant: 'outline' },
 };
 
 export function GuardsListClient() {

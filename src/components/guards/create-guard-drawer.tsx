@@ -146,10 +146,28 @@ export function CreateGuardDrawer() {
 
             console.log('🚀 Creating approval request for guard:', guardData);
             
-            // Create approval request instead of directly creating guard
+            // First, create the guard in database with 'applicant' status
+            console.log('📝 Creating guard with applicant status...');
+            const guardResult = await createGuard(guardData);
+            
+            if (guardResult.error || !guardResult.data) {
+                console.error('❌ Error creating guard:', guardResult.error);
+                toast({
+                    title: 'Failed to create guard',
+                    description: guardResult.error || 'Unknown error',
+                    variant: 'destructive',
+                });
+                setIsSubmitting(false);
+                return;
+            }
+            
+            console.log('✅ Guard created successfully:', guardResult.data.id);
+            
+            // Create approval request for guard enrollment
             const result = await createApprovalRequest({
                 request_type: 'guard_enrollment',
                 entity_type: 'guard',
+                entity_id: guardResult.data.id, // Store the guard ID
                 entity_data: guardData,
                 title: `New Guard Enrollment: ${finalData.fullName}`,
                 description: `Guard with CNIC ${finalData.cnic} from ${finalData.city}`,

@@ -95,28 +95,37 @@ export async function approveRequestAction(
         }
 
         // Handle entity-specific approval logic
-        if (request.request_type === 'guard_enrollment' && request.entity_data) {
-            // Create the guard in the database
-            const guardData = request.entity_data;
+        if (request.request_type === 'guard_enrollment') {
+            // Guard already exists with 'applicant' status, just update it to 'approved'
+            if (!request.entity_id) {
+                console.error('❌ No entity_id found in guard enrollment approval request');
+                return { success: false, error: 'Invalid approval request: missing guard ID' };
+            }
+            
             const { error: guardError } = await supabase
                 .from('guards')
-                .insert({
-                    ...guardData,
-                    org_id: request.org_id, // Include org_id from approval request
+                .update({
                     status: 'approved',
-                    created_by: request.requested_by,
-                    created_at: new Date().toISOString(),
-                });
+                    documents_verified: true,
+                    documents_verified_at: new Date().toISOString(),
+                    documents_verified_by: approverId,
+                    updated_by: approverId,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('id', request.entity_id)
+                .eq('org_id', request.org_id); // Security: verify same org
 
             if (guardError) {
-                console.error('Error creating guard:', guardError);
-                // Revert approval if guard creation fails
+                console.error('❌ Error updating guard status to approved:', guardError);
+                // Revert approval if guard update fails
                 await supabase
                     .from('approval_requests')
                     .update({ status: 'pending' })
                     .eq('id', requestId);
-                return { success: false, error: 'Failed to create guard after approval' };
+                return { success: false, error: 'Failed to update guard status after approval' };
             }
+            
+            console.log('✅ Guard status updated to approved:', request.entity_id);
         }
 
         // Handle client creation approval
