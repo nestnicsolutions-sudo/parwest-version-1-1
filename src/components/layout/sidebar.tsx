@@ -203,27 +203,29 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
     return (
         <aside
             className={cn(
-                'fixed left-0 top-0 z-40 h-screen border-r border-sidebar-border bg-sidebar transition-all duration-300',
-                collapsed ? 'w-[68px]' : 'w-60'
+                'fixed left-0 top-0 z-40 h-screen border-r border-sidebar-border/50 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 shadow-2xl transition-all duration-300',
+                collapsed ? 'w-[68px]' : 'w-64'
             )}
         >
             <div className="flex h-full flex-col">
                 {/* Logo */}
-                <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
+                <div className="flex h-16 items-center justify-between border-b border-white/10 px-4 backdrop-blur-sm">
                     {!collapsed && (
-                        <Link href="/dashboard" className="flex items-center gap-2">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                                <span className="text-sm font-bold">P</span>
+                        <Link href="/dashboard" className="flex items-center gap-3 group transition-transform hover:scale-105">
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-blue-500/20 blur-xl rounded-full"></div>
+                                <img src="/logo.png" alt="Parwest Logo" className="h-10 w-10 object-contain relative z-10" />
                             </div>
-                            <span className="text-lg font-semibold text-sidebar-foreground">
+                            <span className="text-lg font-bold text-white tracking-tight">
                                 Parwest
                             </span>
                         </Link>
                     )}
                     {collapsed && (
-                        <Link href="/dashboard" className="mx-auto">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                                <span className="text-sm font-bold">P</span>
+                        <Link href="/dashboard" className="mx-auto group transition-transform hover:scale-110">
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-blue-500/20 blur-lg rounded-full"></div>
+                                <img src="/logo.png" alt="Parwest" className="h-10 w-10 object-contain relative z-10" />
                             </div>
                         </Link>
                     )}
@@ -236,7 +238,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                             {filteredNavigation.map((group) => (
                                 <div key={group.label}>
                                     {!collapsed && (
-                                        <p className="mb-2 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground" suppressHydrationWarning>
+                                        <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-500" suppressHydrationWarning>
                                             {group.label}
                                         </p>
                                     )}
@@ -250,24 +252,24 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                                                     key={item.href}
                                                     href={item.href}
                                                     className={cn(
-                                                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                                                        'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
                                                         isActive
-                                                            ? 'bg-sidebar-accent text-sidebar-primary'
-                                                            : 'text-sidebar-foreground hover:bg-sidebar-accent/50',
+                                                            ? 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-white shadow-lg shadow-blue-500/20 before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-8 before:w-1 before:rounded-r-full before:bg-blue-500'
+                                                            : 'text-slate-400 hover:bg-white/5 hover:text-white hover:shadow-md',
                                                         collapsed && 'justify-center px-2'
                                                     )}
                                                 >
                                                     <Icon
                                                         className={cn(
-                                                            'h-5 w-5 shrink-0',
+                                                            'h-5 w-5 shrink-0 transition-transform group-hover:scale-110',
                                                             isActive
-                                                                ? 'text-sidebar-primary'
-                                                                : 'text-muted-foreground'
+                                                                ? 'text-blue-400'
+                                                                : 'text-slate-500 group-hover:text-blue-400'
                                                         )}
                                                     />
-                                                    {!collapsed && <span>{item.label}</span>}
+                                                    {!collapsed && <span className="font-medium">{item.label}</span>}
                                                     {!collapsed && item.badge !== undefined && (
-                                                        <span className="ml-auto rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
+                                                        <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white shadow-lg">
                                                             {item.badge}
                                                         </span>
                                                     )}
@@ -275,9 +277,6 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                                             );
                                         })}
                                     </div>
-                                    {!collapsed && group !== filteredNavigation[filteredNavigation.length - 1] && (
-                                        <Separator className="mt-4" />
-                                    )}
                                 </div>
                             ))}
                         </nav>
@@ -285,17 +284,24 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                 </ScrollArea>
 
                 {/* Settings & Collapse */}
-                <div className="flex-shrink-0 border-t border-sidebar-border p-3">
+                <div className="flex-shrink-0 border-t border-white/10 bg-slate-950/50 p-3 backdrop-blur-sm">
                     <Link
                         href="/settings"
                         className={cn(
-                            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/50',
-                            pathname.startsWith('/settings') && 'bg-sidebar-accent text-sidebar-primary',
+                            'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                            pathname.startsWith('/settings')
+                                ? 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-white shadow-lg shadow-blue-500/20'
+                                : 'text-slate-400 hover:bg-white/5 hover:text-white hover:shadow-md',
                             collapsed && 'justify-center px-2'
                         )}
                     >
-                        <Settings className="h-5 w-5 shrink-0 text-muted-foreground" />
-                        {!collapsed && <span>Settings</span>}
+                        <Settings 
+                            className={cn(
+                                'h-5 w-5 shrink-0 transition-transform group-hover:scale-110 group-hover:rotate-90',
+                                pathname.startsWith('/settings') ? 'text-blue-400' : 'text-slate-500 group-hover:text-blue-400'
+                            )} 
+                        />
+                        {!collapsed && <span className="font-medium">Settings</span>}
                     </Link>
 
                     {onToggle && (
@@ -304,7 +310,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                             size="sm"
                             onClick={onToggle}
                             className={cn(
-                                'mt-2 w-full justify-center',
+                                'mt-2 w-full justify-center text-slate-400 hover:bg-white/5 hover:text-white transition-all',
                                 collapsed ? 'px-2' : ''
                             )}
                         >
@@ -313,7 +319,7 @@ export function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                             ) : (
                                 <>
                                     <ChevronLeft className="h-4 w-4 mr-2" />
-                                    <span>Collapse</span>
+                                    <span className="text-xs font-medium">Collapse</span>
                                 </>
                             )}
                         </Button>

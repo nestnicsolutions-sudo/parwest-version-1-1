@@ -86,15 +86,16 @@ export function GuardsListClient() {
     return (
         <>
             {/* Stats Cards */}
-            <div className="grid gap-4 md:grid-cols-4">
-                <Card className="shadow-sm">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
+            <div className="grid gap-6 md:grid-cols-4 mb-8">
+                <Card className="group relative overflow-hidden border-0 bg-white/80 backdrop-blur-sm shadow-lg shadow-slate-200/50 transition-all duration-300 hover:shadow-xl hover:shadow-slate-300/50 hover:-translate-y-1">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <CardHeader className="pb-3 relative z-10">
+                        <CardTitle className="text-sm font-semibold text-slate-600 uppercase tracking-wide">
                             Total Guards
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
+                    <CardContent className="relative z-10">
+                        <div className="text-3xl font-bold bg-gradient-to-br from-slate-900 to-slate-700 bg-clip-text text-transparent">
                             {isLoading ? (
                                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                             ) : (
@@ -106,14 +107,15 @@ export function GuardsListClient() {
                         )}
                     </CardContent>
                 </Card>
-                <Card className="shadow-sm">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                <Card className="group relative overflow-hidden border-0 bg-white/80 backdrop-blur-sm shadow-lg shadow-slate-200/50 transition-all duration-300 hover:shadow-xl hover:shadow-green-200/50 hover:-translate-y-1">
+                    <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <CardHeader className="pb-3 relative z-10">
+                        <CardTitle className="text-sm font-semibold text-slate-600 uppercase tracking-wide">
                             Active
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-success">
+                    <CardContent className="relative z-10">
+                        <div className="text-3xl font-bold text-green-600">
                             {isLoading ? (
                                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                             ) : (
@@ -122,14 +124,15 @@ export function GuardsListClient() {
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="shadow-sm">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                <Card className="group relative overflow-hidden border-0 bg-white/80 backdrop-blur-sm shadow-lg shadow-slate-200/50 transition-all duration-300 hover:shadow-xl hover:shadow-yellow-200/50 hover:-translate-y-1">
+                    <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <CardHeader className="pb-3 relative z-10">
+                        <CardTitle className="text-sm font-semibold text-slate-600 uppercase tracking-wide">
                             Pending Deployment
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-warning">
+                    <CardContent className="relative z-10">
+                        <div className="text-3xl font-bold text-yellow-600">
                             {isLoading ? (
                                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                             ) : (
@@ -138,14 +141,15 @@ export function GuardsListClient() {
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="shadow-sm border-destructive/50">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-destructive">
+                <Card className="group relative overflow-hidden border-0 bg-white/80 backdrop-blur-sm shadow-lg shadow-red-200/30 transition-all duration-300 hover:shadow-xl hover:shadow-red-300/50 hover:-translate-y-1">
+                    <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-rose-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <CardHeader className="pb-3 relative z-10">
+                        <CardTitle className="text-sm font-semibold text-red-600 uppercase tracking-wide">
                             Blacklisted
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-destructive">
+                    <CardContent className="relative z-10">
+                        <div className="text-3xl font-bold text-red-600">
                             {isLoading ? (
                                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                             ) : (
@@ -157,30 +161,30 @@ export function GuardsListClient() {
             </div>
 
             {/* Filters & Search */}
-            <Card className="shadow-sm">
+            <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-lg shadow-slate-200/50 mb-6">
                 <CardContent className="pt-6">
                     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div className="relative flex-1 max-w-sm">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                             <Input 
                                 placeholder="Search by name, CNIC, ID..." 
-                                className="pl-10"
+                                className="pl-12 h-11 border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 bg-white rounded-xl"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                         <div className="flex gap-2">
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" className="rounded-xl border-slate-200 hover:bg-slate-50 hover:border-slate-300">
                                 <Filter className="h-4 w-4 mr-2" />
                                 Filters
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" className="rounded-xl border-slate-200 hover:bg-slate-50 hover:border-slate-300">
                                 Status
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" className="rounded-xl border-slate-200 hover:bg-slate-50 hover:border-slate-300">
                                 Region
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" className="rounded-xl border-slate-200 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600">
                                 <Download className="h-4 w-4 mr-2" />
                                 Export
                             </Button>
@@ -190,7 +194,7 @@ export function GuardsListClient() {
             </Card>
 
             {/* Guards Table */}
-            <Card className="shadow-sm">
+            <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-lg shadow-slate-200/50">
                 <CardContent className="p-0">
                     {error && (
                         <div className="p-4 text-center text-destructive">

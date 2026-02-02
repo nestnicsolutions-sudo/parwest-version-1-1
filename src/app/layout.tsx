@@ -21,6 +21,11 @@ export const metadata: Metadata = {
   },
   description: "Security Guard Management ERP System",
   keywords: ["ERP", "security", "guard management", "workforce"],
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

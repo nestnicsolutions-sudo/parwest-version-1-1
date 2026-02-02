@@ -125,7 +125,7 @@ export function AppShell({ children, contextSidebar }: AppShellProps) {
     }, []);
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100">
             {/* Sidebar */}
             <Sidebar
                 collapsed={sidebarCollapsed}
@@ -136,7 +136,7 @@ export function AppShell({ children, contextSidebar }: AppShellProps) {
             <div
                 className={cn(
                     'flex flex-col transition-all duration-300',
-                    sidebarCollapsed ? 'ml-[68px]' : 'ml-60'
+                    sidebarCollapsed ? 'ml-[68px]' : 'ml-64'
                 )}
             >
                 {/* Top Bar */}
@@ -147,8 +147,10 @@ export function AppShell({ children, contextSidebar }: AppShellProps) {
                 {/* Main + Context Sidebar */}
                 <div className="flex flex-1">
                     {/* Main Workspace */}
-                    <main className="flex-1 p-6 overflow-auto">
-                        {children}
+                    <main className="flex-1 p-8 overflow-auto">
+                        <div className="mx-auto max-w-[1600px]">
+                            {children}
+                        </div>
                     </main>
 
                     {/* Context Sidebar (Right Panel) */}

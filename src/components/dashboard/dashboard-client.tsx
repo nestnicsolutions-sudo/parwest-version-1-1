@@ -108,7 +108,7 @@ export function DashboardClient() {
     return (
         <>
             {/* Quick Stats */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
                 {statCards.map((stat) => {
                     const Icon = stat.icon;
                     const changeIsPositive = stat.change > 0;
@@ -116,29 +116,35 @@ export function DashboardClient() {
                     const trendColor = changeIsPositive ? 'text-success' : 'text-destructive';
 
                     return (
-                        <Card key={stat.title} className="shadow-sm">
-                            <CardHeader className="pb-2">
+                        <Card key={stat.title} className="group relative overflow-hidden border-0 bg-white/80 backdrop-blur-sm shadow-lg shadow-slate-200/50 transition-all duration-300 hover:shadow-xl hover:shadow-slate-300/50 hover:-translate-y-1">
+                            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <CardHeader className="pb-3 relative z-10">
                                 <div className="flex items-center justify-between">
-                                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                                    <CardTitle className="text-sm font-semibold text-slate-600 uppercase tracking-wide">
                                         {stat.title}
                                     </CardTitle>
-                                    <Icon className={`h-4 w-4 ${stat.color}`} />
+                                    <div className="rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 p-2.5 shadow-inner group-hover:shadow-md transition-shadow">
+                                        <Icon className={`h-5 w-5 ${stat.color}`} />
+                                    </div>
                                 </div>
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className="relative z-10">
                                 {statsLoading ? (
-                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                    <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
                                 ) : (
                                     <>
-                                        <div className="text-2xl font-bold">{stat.value}</div>
-                                        <div className={`flex items-center text-xs mt-1 ${trendColor}`}>
+                                        <div className="text-3xl font-bold bg-gradient-to-br from-slate-900 to-slate-700 bg-clip-text text-transparent">{stat.value}</div>
+                                        <div className={`flex items-center text-sm mt-2 font-medium ${trendColor}`}>
                                             <TrendIcon className="h-3 w-3 mr-1" />
                                             <span>
                                                 {formatChange(stat.change, stat.isPercentage, stat.isCurrency)} from last period
                                             </span>
                                         </div>
                                         {statsFetching && !statsLoading && (
-                                            <p className="text-xs text-muted-foreground mt-1">Syncing...</p>
+                                            <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
+                                                <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                                                Syncing...
+                                            </p>
                                         )}
                                     </>
                                 )}
