@@ -4,50 +4,42 @@
 -- =====================================================
 -- Run these indexes to dramatically improve query performance
 -- Execute in your Supabase SQL Editor
+-- Based on complete-database-setup.sql tables
 -- =====================================================
 
 -- =====================================================
 -- GUARDS TABLE INDEXES
 -- =====================================================
 
--- Primary lookup by organization
 CREATE INDEX IF NOT EXISTS idx_guards_org_id 
 ON guards(org_id) 
 WHERE is_deleted = false;
 
--- Status filtering (applicant, approved, rejected, etc.)
 CREATE INDEX IF NOT EXISTS idx_guards_status 
 ON guards(status) 
 WHERE is_deleted = false;
 
--- Active guards lookup
 CREATE INDEX IF NOT EXISTS idx_guards_is_active 
 ON guards(is_active) 
 WHERE is_deleted = false;
 
--- Recent guards sorting
 CREATE INDEX IF NOT EXISTS idx_guards_created_at 
 ON guards(created_at DESC);
 
--- Guard code search
 CREATE INDEX IF NOT EXISTS idx_guards_guard_code 
 ON guards(guard_code);
 
--- Name search (full text)
 CREATE INDEX IF NOT EXISTS idx_guards_search_name 
 ON guards USING gin(to_tsvector('english', first_name || ' ' || last_name));
 
--- Regional office filtering
 CREATE INDEX IF NOT EXISTS idx_guards_regional_office 
 ON guards(regional_office_id) 
 WHERE regional_office_id IS NOT NULL;
 
--- Branch assignment lookup
 CREATE INDEX IF NOT EXISTS idx_guards_assigned_branch 
 ON guards(assigned_branch_id) 
 WHERE assigned_branch_id IS NOT NULL;
 
--- Composite index for common query pattern
 CREATE INDEX IF NOT EXISTS idx_guards_org_status_active 
 ON guards(org_id, status, is_active) 
 WHERE is_deleted = false;
@@ -133,13 +125,17 @@ ON guard_deployments(guard_id);
 CREATE INDEX IF NOT EXISTS idx_deployments_branch_id 
 ON guard_deployments(branch_id);
 
+-- Client lookup
+CREATE INDEX IF NOT EXISTS idx_deployments_client_id 
+ON guard_deployments(client_id);
+
 -- Status filtering
 CREATE INDEX IF NOT EXISTS idx_deployments_status 
 ON guard_deployments(status);
 
 -- Date range queries
-CREATE INDEX IF NOT EXISTS idx_deployments_start_date 
-ON guard_deployments(start_date);
+CREATE INDEX IF NOT EXISTS idx_deployments_deployment_date 
+ON guard_deployments(deployment_date DESC);
 
 CREATE INDEX IF NOT EXISTS idx_deployments_end_date 
 ON guard_deployments(end_date) 
@@ -155,36 +151,33 @@ CREATE INDEX IF NOT EXISTS idx_deployments_org_id
 ON guard_deployments(org_id);
 
 -- =====================================================
--- GUARD ATTENDANCE TABLE INDEXES
+-- ATTENDANCE_RECORDS TABLE INDEXES
 -- =====================================================
 
--- Guard lookup
-CREATE INDEX IF NOT EXISTS idx_attendance_guard_id 
-ON guard_attendance(guard_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_records_guard_id 
+ON attendance_records(guard_id);
 
--- Branch lookup
-CREATE INDEX IF NOT EXISTS idx_attendance_branch_id 
-ON guard_attendance(branch_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_records_branch_id 
+ON attendance_records(branch_id);
 
--- Date queries
-CREATE INDEX IF NOT EXISTS idx_attendance_date 
-ON guard_attendance(attendance_date DESC);
+CREATE INDEX IF NOT EXISTS idx_attendance_records_deployment_id 
+ON attendance_records(deployment_id)
+WHERE deployment_id IS NOT NULL;
 
--- Status filtering
-CREATE INDEX IF NOT EXISTS idx_attendance_status 
-ON guard_attendance(attendance_status);
+CREATE INDEX IF NOT EXISTS idx_attendance_records_date 
+ON attendance_records(attendance_date DESC);
 
--- Month/year reporting
-CREATE INDEX IF NOT EXISTS idx_attendance_month_year 
-ON guard_attendance(EXTRACT(YEAR FROM attendance_date), EXTRACT(MONTH FROM attendance_date));
+CREATE INDEX IF NOT EXISTS idx_attendance_records_status 
+ON attendance_records(status);
 
--- Composite for common query
-CREATE INDEX IF NOT EXISTS idx_attendance_guard_date 
-ON guard_attendance(guard_id, attendance_date DESC);
+CREATE INDEX IF NOT EXISTS idx_attendance_records_guard_date 
+ON attendance_records(guard_id, attendance_date DESC);
 
--- Organization lookup
-CREATE INDEX IF NOT EXISTS idx_attendance_org_id 
-ON guard_attendance(org_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_records_org_id 
+ON attendance_records(org_id);
+
+CREATE INDEX IF NOT EXISTS idx_attendance_records_verified
+ON attendance_records(verified, attendance_date DESC);
 
 -- =====================================================
 -- PROFILES TABLE INDEXES
@@ -241,91 +234,62 @@ ON approval_requests(org_id, status)
 WHERE status = 'pending';
 
 -- =====================================================
--- PAYROLL TABLE INDEXES
+-- INVOICES TABLE INDEXES
 -- =====================================================
 
--- Guard lookup
-CREATE INDEX IF NOT EXISTS idx_payroll_guard_id 
-ON guard_payroll(guard_id);
-
--- Period queries
-CREATE INDEX IF NOT EXISTS idx_payroll_period 
-ON guard_payroll(pay_period_start, pay_period_end);
-
--- Month/year reporting
-CREATE INDEX IF NOT EXISTS idx_payroll_month_year 
-ON guard_payroll(EXTRACT(YEAR FROM pay_period_start), EXTRACT(MONTH FROM pay_period_start));
-
--- Status filtering
-CREATE INDEX IF NOT EXISTS idx_payroll_status 
-ON guard_payroll(status);
-
--- Organization lookup
-CREATE INDEX IF NOT EXISTS idx_payroll_org_id 
-ON guard_payroll(org_id);
-
--- =====================================================
--- TICKETS TABLE INDEXES
--- =====================================================
-
--- Status filtering
-CREATE INDEX IF NOT EXISTS idx_tickets_status 
-ON tickets(status);
-
--- Priority filtering
-CREATE INDEX IF NOT EXISTS idx_tickets_priority 
-ON tickets(priority);
-
--- Assigned to lookup
-CREATE INDEX IF NOT EXISTS idx_tickets_assigned_to 
-ON tickets(assigned_to) 
-WHERE assigned_to IS NOT NULL;
-
--- Created by lookup
-CREATE INDEX IF NOT EXISTS idx_tickets_created_by 
-ON tickets(created_by);
-
--- Date sorting
-CREATE INDEX IF NOT EXISTS idx_tickets_created_at 
-ON tickets(created_at DESC);
-
--- Organization lookup
-CREATE INDEX IF NOT EXISTS idx_tickets_org_id 
-ON tickets(org_id);
-
--- Open tickets (common query)
-CREATE INDEX IF NOT EXISTS idx_tickets_open 
-ON tickets(org_id, status) 
-WHERE status IN ('open', 'in_progress');
-
--- =====================================================
--- BILLING/INVOICES TABLE INDEXES
--- =====================================================
-
--- Client lookup
 CREATE INDEX IF NOT EXISTS idx_invoices_client_id 
 ON invoices(client_id);
 
--- Status filtering
 CREATE INDEX IF NOT EXISTS idx_invoices_status 
 ON invoices(status);
 
--- Due date queries
 CREATE INDEX IF NOT EXISTS idx_invoices_due_date 
 ON invoices(due_date);
 
--- Invoice date
 CREATE INDEX IF NOT EXISTS idx_invoices_invoice_date 
 ON invoices(invoice_date DESC);
 
--- Organization lookup
 CREATE INDEX IF NOT EXISTS idx_invoices_org_id 
 ON invoices(org_id);
 
--- Outstanding invoices (common query)
-CREATE INDEX IF NOT EXISTS idx_invoices_outstanding 
-ON invoices(org_id, status) 
-WHERE status IN ('pending', 'overdue');
+-- =====================================================
+-- PAYROLL_CYCLES TABLE INDEXES
+-- =====================================================
+
+CREATE INDEX IF NOT EXISTS idx_payroll_cycles_org_id 
+ON payroll_cycles(org_id);
+
+CREATE INDEX IF NOT EXISTS idx_payroll_cycles_status 
+ON payroll_cycles(status);
+
+CREATE INDEX IF NOT EXISTS idx_payroll_cycles_period 
+ON payroll_cycles(start_date, end_date);
+
+-- =====================================================
+-- PAYROLL_ITEMS TABLE INDEXES
+-- =====================================================
+
+CREATE INDEX IF NOT EXISTS idx_payroll_items_cycle_id 
+ON payroll_items(cycle_id);
+
+CREATE INDEX IF NOT EXISTS idx_payroll_items_guard_id 
+ON payroll_items(guard_id);
+
+CREATE INDEX IF NOT EXISTS idx_payroll_items_org_id 
+ON payroll_items(org_id);
+
+-- =====================================================
+-- INVENTORY_ITEMS TABLE INDEXES
+-- =====================================================
+
+CREATE INDEX IF NOT EXISTS idx_inventory_items_org_id 
+ON inventory_items(org_id);
+
+CREATE INDEX IF NOT EXISTS idx_inventory_items_category 
+ON inventory_items(category);
+
+CREATE INDEX IF NOT EXISTS idx_inventory_items_status 
+ON inventory_items(status);
 
 -- =====================================================
 -- VERIFICATION COMPLETE
@@ -334,8 +298,8 @@ WHERE status IN ('pending', 'overdue');
 -- Check index usage with this query:
 SELECT 
     schemaname,
-    tablename,
-    indexname,
+    relname as tablename,
+    indexrelname as indexname,
     idx_scan as "Times Used",
     idx_tup_read as "Tuples Read",
     idx_tup_fetch as "Tuples Fetched"
@@ -367,11 +331,15 @@ Storage Impact:
 ANALYZE guards;
 ANALYZE clients;
 ANALYZE client_branches;
+ANALYZE client_contracts;
 ANALYZE guard_deployments;
-ANALYZE guard_attendance;
+ANALYZE attendance_records;
 ANALYZE profiles;
 ANALYZE approval_requests;
-ANALYZE guard_payroll;
-ANALYZE tickets;
+ANALYZE invoices;
+ANALYZE invoice_items;
+ANALYZE payroll_cycles;
+ANALYZE payroll_items;
+ANALYZE inventory_items;
 
-SELECT 'All performance indexes created successfully!' as status;
+SELECT 'All performance indexes created successfully! 🚀' as status;
